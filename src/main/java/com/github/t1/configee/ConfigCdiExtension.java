@@ -2,32 +2,20 @@ package com.github.t1.configee;
 
 import static java.util.Arrays.*;
 
-import java.io.IOException;
-import java.lang.reflect.*;
-import java.util.*;
-import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.*;
-
-import org.joda.convert.StringConvert;
-
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
+import java.lang.reflect.*;
+import java.util.*;
+import java.util.stream.Stream;
 
 @Slf4j
 public class ConfigCdiExtension implements Extension {
-    public static final StringConvert CONVERT = new StringConvert();
-
     private final Map<Field, ConfigValue<?>> configPoints = new HashMap<>();
-    private final Properties properties = new Properties();
 
-    @SneakyThrows(IOException.class)
-    public ConfigCdiExtension() {
-        properties.load(getClass().getResourceAsStream("/config.properties"));
-        log.debug("loaded {}", properties);
-    }
+    private final ConfigSource configSource = MultiConfigSource.load();
 
     public <T> void processInjectionTarget(@Observes ProcessInjectionTarget<T> pit) {
         Class<T> type = pit.getAnnotatedType().getJavaClass();
@@ -39,7 +27,7 @@ public class ConfigCdiExtension implements Extension {
             @Override
             public T produce(CreationalContext<T> context) {
                 T instance = super.produce(context);
-                log.trace("created: {}", instance);
+                log.trace("configure instance: {}", instance);
                 configPointsIn(instance.getClass()).forEach(field -> setConfigPoint(instance, field));
                 return instance;
             }
@@ -47,8 +35,7 @@ public class ConfigCdiExtension implements Extension {
     }
 
     private <T> Stream<Field> configPointsIn(Class<T> type) {
-        return asList(type.getDeclaredFields()).stream()
-                .filter(field -> isConfigPoint(field));
+        return asList(type.getDeclaredFields()).stream().filter(this::isConfigPoint);
     }
 
     private boolean isConfigPoint(Field field) {
@@ -58,7 +45,6 @@ public class ConfigCdiExtension implements Extension {
     private void setConfigPoint(Object instance, Field field) {
         try {
             ConfigValue<?> value = configPoints.get(field);
-            log.debug("set {}#{} to {}", instance, field.getName(), value);
             field.setAccessible(true);
             field.set(instance, value);
         } catch (ReflectiveOperationException e) {
@@ -69,8 +55,9 @@ public class ConfigCdiExtension implements Extension {
     private ConfigValue<?> createConfigValue(Field field) {
         String name = field.getName();
         Class<?> type = typeArg0(field);
-        log.debug("create config point '{}' for {}#{}", name, type, field.getDeclaringClass().getSimpleName());
-        return new ConfigValue<>(properties, type, name);
+        log.debug("create {} config point '{}' in {}", type.getSimpleName(), name,
+                field.getDeclaringClass().getSimpleName());
+        return new ConfigValue<>(configSource, type, name);
     }
 
     private Class<?> typeArg0(Field field) {

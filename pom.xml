@@ -37,9 +37,16 @@
                     <source>1.8</source>
                     <target>1.8</target>
                     <showDeprecation>true</showDeprecation>
-                    <compilerArgument>-parameters</compilerArgument>
-                    <!-- Java 8 javadoc is way to strict; see http://blog.joda.org/2014/02/turning-off-doclint-in-jdk-8-javadoc.html -->
-                    <compilerArgument>-Xdoclint:none</compilerArgument>
+                    <!-- the annotation processor itself has not yet been built, but we need lombok: -->
+                    <compilerArguments>
+                        <processor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</processor>
+                    </compilerArguments>
+                    <!-- for the tests, it has been built, so we can add it to lombok: -->
+                    <testCompilerArguments>
+                        <processor>
+                            lombok.launch.AnnotationProcessorHider$AnnotationProcessor,com.github.t1.configee.ConfigAnnotationProcessor
+                        </processor>
+                    </testCompilerArguments>
                 </configuration>
             </plugin>
             <plugin>
@@ -98,6 +105,16 @@
             <groupId>org.joda</groupId>
             <artifactId>joda-convert</artifactId>
             <version>1.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.t1</groupId>
+            <artifactId>extended-annotation-processor</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>1.16</version>
         </dependency>
 
         <!-- test scope -->

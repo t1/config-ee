@@ -1,24 +1,18 @@
 package com.github.t1.configee;
 
-import static com.github.t1.configee.ConfigExtensionTest.ComplexConfiguration.*;
 import static org.assertj.core.api.Assertions.*;
-
-import java.math.BigDecimal;
-import java.util.regex.*;
-
-import javax.enterprise.inject.spi.Extension;
-import javax.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.joda.convert.TypedStringConverter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import lombok.*;
+import javax.enterprise.inject.spi.Extension;
+import javax.inject.Inject;
+import java.math.BigDecimal;
 
 @RunWith(Arquillian.class)
 public class ConfigExtensionTest {
@@ -30,13 +24,6 @@ public class ConfigExtensionTest {
                 .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
     }
 
-    @Value
-    @Builder(builderMethodName = "complex")
-    public static class ComplexConfiguration {
-        String one, two;
-    }
-
-    @Data
     public static class Configured {
         private ConfigValue<String> stringConfig;
         private ConfigValue<Boolean> booleanConfig;
@@ -47,6 +34,16 @@ public class ConfigExtensionTest {
 
     @Inject
     Configured configured;
+
+    @Inject
+    Configured configured2;
+
+    public static class ConfiguredX {
+        private ConfigValue<String> booleanConfig;
+    }
+
+    @Inject
+    ConfiguredX configuredX;
 
     @Test
     public void shouldConfigureString() {
@@ -74,31 +71,23 @@ public class ConfigExtensionTest {
 
     @Test
     public void shouldConfigureComplex() {
-        ConfigCdiExtension.CONVERT.register(ComplexConfiguration.class,
-                new TypedStringConverter<ComplexConfiguration>() {
-                    @Override
-                    public String convertToString(ComplexConfiguration object) {
-                        return "{one=" + object.getOne() + ",two=" + object.getTwo() + "}";
-                    }
-
-                    @Override
-                    public ComplexConfiguration convertFromString(Class<? extends ComplexConfiguration> cls,
-                            String str) {
-                        Pattern pattern = Pattern.compile("\\{one=(.*),two=(.*)\\}");
-                        Matcher matcher = pattern.matcher(str);
-                        matcher.matches();
-                        return complex()
-                                .one(matcher.group(1))
-                                .two(matcher.group(2))
-                                .build();
-                    }
-
-                    @Override
-                    public Class<?> getEffectiveType() {
-                        return ComplexConfiguration.class;
-                    }
-                });
+        Converter.CONVERT.register(ComplexConfiguration.class, new ComplexConfiguration.Converter());
         assertThat(configured.complexConfig).isNotNull();
-        assertThat(configured.complexConfig.get()).isEqualTo(complex().one("a").two("b").build());
+        assertThat(configured.complexConfig.get()).isEqualTo(new ComplexConfiguration("a", "b"));
     }
+
+    @Test
+    public void shouldConfigure2() {
+        assertThat(configured2.stringConfig).isNotNull();
+        assertThat(configured2.stringConfig.get()).isEqualTo("configured string");
+    }
+
+    @Test
+    public void shouldConfigureX() {
+        Throwable thrown = catchThrowable(() -> configuredX.booleanConfig.get());
+
+        assertThat(thrown).isInstanceOf(ClassCastException.class)
+                .hasMessage("Cannot cast java.lang.Boolean to java.lang.String");
+    }
+
 }
