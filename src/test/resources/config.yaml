@@ -1,0 +1,6 @@
+!!com.github.t1.configee.Configuration
+bigDecimalConfig: 123.456
+booleanConfig: true
+complexConfig: {one: a, two: b}
+intConfig: 123
+stringConfig: configured string
